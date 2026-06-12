@@ -13,13 +13,50 @@
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>25</java.version>
+        <!-- Output dir for the assembled jar; CodeCrafters overrides with -Ddir=... -->
+        <dir>${project.build.directory}</dir>
+
+        <openai.version>0.36.0</openai.version>
+        <jackson.version>2.18.2</jackson.version>
+        <jline.version>3.27.1</jline.version>
+        <picocli.version>4.7.6</picocli.version>
+        <junit.version>5.11.3</junit.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.openai</groupId>
             <artifactId>openai-java</artifactId>
-            <version>0.36.0</version>
+            <version>${openai.version}</version>
+        </dependency>
+
+        <!-- Explicit JSON (previously only transitive via openai-java) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- Interactive REPL: line editing, history, completion, ANSI -->
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>${jline.version}</version>
+        </dependency>
+
+        <!-- CLI flag parsing -->
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+            <version>${picocli.version}</version>
+        </dependency>
+
+        <!-- Tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -34,6 +71,17 @@
                     </compilerArgs>
                 </configuration>
             </plugin>
+
+            <!-- Run JUnit 5 with preview features enabled (matches compiler) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <argLine>--enable-preview</argLine>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
