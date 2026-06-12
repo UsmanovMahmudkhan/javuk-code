@@ -86,6 +86,25 @@ public class Main {
                         .build())
                 .build();
 
+        FunctionParameters bashParameters = FunctionParameters.builder()
+                .putAdditionalProperty("type", JsonValue.from("object"))
+                .putAdditionalProperty("properties", JsonValue.from(Map.of(
+                        "command", Map.of(
+                                "type", "string",
+                                "description", "The command to execute"
+                        )
+                )))
+                .putAdditionalProperty("required", JsonValue.from(List.of("command")))
+                .build();
+
+        ChatCompletionTool bashTool = ChatCompletionTool.builder()
+                .function(FunctionDefinition.builder()
+                        .name("Bash")
+                        .description("Execute a shell command")
+                        .parameters(bashParameters)
+                        .build())
+                .build();
+
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.err.println("Logs from your program will appear here!");
 
@@ -100,6 +119,7 @@ public class Main {
                             .messages(messages)
                             .addTool(readTool)
                             .addTool(writeTool)
+                            .addTool(bashTool)
                             .build()
             );
 
@@ -126,6 +146,8 @@ public class Main {
                     result = executeRead(arguments);
                 } else if ("Write".equals(name)) {
                     result = executeWrite(arguments);
+                } else if ("Bash".equals(name)) {
+                    result = executeBash(arguments);
                 }
 
                 messages.add(ChatCompletionMessageParam.ofTool(
@@ -160,6 +182,22 @@ public class Main {
             return "Successfully wrote to " + filePath;
         } catch (Exception e) {
             throw new RuntimeException("failed to execute Write tool", e);
+        }
+    }
+
+    private static String executeBash(String arguments) {
+        try {
+            JsonNode node = new ObjectMapper().readTree(arguments);
+            String command = node.get("command").asText();
+
+            Process process = new ProcessBuilder("sh", "-c", command)
+                    .redirectErrorStream(true)
+                    .start();
+            String output = new String(process.getInputStream().readAllBytes());
+            process.waitFor();
+            return output;
+        } catch (Exception e) {
+            return "failed to execute Bash tool: " + e.getMessage();
         }
     }
 }
