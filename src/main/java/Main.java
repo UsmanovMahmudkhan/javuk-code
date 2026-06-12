@@ -8,11 +8,15 @@ import com.openai.models.FunctionParameters;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import com.openai.models.chat.completions.ChatCompletionMessage;
+import com.openai.models.chat.completions.ChatCompletionMessageParam;
 import com.openai.models.chat.completions.ChatCompletionMessageToolCall;
 import com.openai.models.chat.completions.ChatCompletionTool;
+import com.openai.models.chat.completions.ChatCompletionToolMessageParam;
+import com.openai.models.chat.completions.ChatCompletionUserMessageParam;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -59,34 +63,51 @@ public class Main {
                         .build())
                 .build();
 
-        ChatCompletion response = client.chat().completions().create(
-                ChatCompletionCreateParams.builder()
-                        .model("anthropic/claude-haiku-4.5")
-                        .addUserMessage(prompt)
-                        .addTool(readTool)
-                        .build()
-        );
-
-        if (response.choices().isEmpty()) {
-            throw new RuntimeException("no choices in response");
-        }
-
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.err.println("Logs from your program will appear here!");
 
-        ChatCompletionMessage message = response.choices().get(0).message();
-        List<ChatCompletionMessageToolCall> toolCalls = message.toolCalls().orElse(List.of());
+        List<ChatCompletionMessageParam> messages = new ArrayList<>();
+        messages.add(ChatCompletionMessageParam.ofUser(
+                ChatCompletionUserMessageParam.builder().content(prompt).build()));
 
-        if (!toolCalls.isEmpty()) {
-            ChatCompletionMessageToolCall toolCall = toolCalls.get(0);
-            String name = toolCall.function().name();
-            String arguments = toolCall.function().arguments();
+        while (true) {
+            ChatCompletion response = client.chat().completions().create(
+                    ChatCompletionCreateParams.builder()
+                            .model("anthropic/claude-haiku-4.5")
+                            .messages(messages)
+                            .addTool(readTool)
+                            .build()
+            );
 
-            if ("Read".equals(name)) {
-                System.out.print(executeRead(arguments));
+            if (response.choices().isEmpty()) {
+                throw new RuntimeException("no choices in response");
             }
-        } else {
-            System.out.print(message.content().orElse(""));
+
+            ChatCompletionMessage message = response.choices().get(0).message();
+            messages.add(ChatCompletionMessageParam.ofAssistant(message.toParam()));
+
+            List<ChatCompletionMessageToolCall> toolCalls = message.toolCalls().orElse(List.of());
+
+            if (toolCalls.isEmpty()) {
+                System.out.print(message.content().orElse(""));
+                return;
+            }
+
+            for (ChatCompletionMessageToolCall toolCall : toolCalls) {
+                String name = toolCall.function().name();
+                String arguments = toolCall.function().arguments();
+
+                String result = "";
+                if ("Read".equals(name)) {
+                    result = executeRead(arguments);
+                }
+
+                messages.add(ChatCompletionMessageParam.ofTool(
+                        ChatCompletionToolMessageParam.builder()
+                                .toolCallId(toolCall.id())
+                                .content(result)
+                                .build()));
+            }
         }
     }
 
