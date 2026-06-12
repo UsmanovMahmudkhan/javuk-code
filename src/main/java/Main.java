@@ -1,3 +1,5 @@
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.JsonValue;
@@ -5,8 +7,12 @@ import com.openai.models.FunctionDefinition;
 import com.openai.models.FunctionParameters;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import com.openai.models.chat.completions.ChatCompletionMessage;
+import com.openai.models.chat.completions.ChatCompletionMessageToolCall;
 import com.openai.models.chat.completions.ChatCompletionTool;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -68,6 +74,29 @@ public class Main {
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.err.println("Logs from your program will appear here!");
 
-        System.out.print(response.choices().get(0).message().content().orElse(""));
+        ChatCompletionMessage message = response.choices().get(0).message();
+        List<ChatCompletionMessageToolCall> toolCalls = message.toolCalls().orElse(List.of());
+
+        if (!toolCalls.isEmpty()) {
+            ChatCompletionMessageToolCall toolCall = toolCalls.get(0);
+            String name = toolCall.function().name();
+            String arguments = toolCall.function().arguments();
+
+            if ("Read".equals(name)) {
+                System.out.print(executeRead(arguments));
+            }
+        } else {
+            System.out.print(message.content().orElse(""));
+        }
+    }
+
+    private static String executeRead(String arguments) {
+        try {
+            JsonNode node = new ObjectMapper().readTree(arguments);
+            String filePath = node.get("file_path").asText();
+            return Files.readString(Path.of(filePath));
+        } catch (Exception e) {
+            throw new RuntimeException("failed to execute Read tool", e);
+        }
     }
 }
