@@ -63,6 +63,29 @@ public class Main {
                         .build())
                 .build();
 
+        FunctionParameters writeParameters = FunctionParameters.builder()
+                .putAdditionalProperty("type", JsonValue.from("object"))
+                .putAdditionalProperty("properties", JsonValue.from(Map.of(
+                        "file_path", Map.of(
+                                "type", "string",
+                                "description", "The path of the file to write to"
+                        ),
+                        "content", Map.of(
+                                "type", "string",
+                                "description", "The content to write to the file"
+                        )
+                )))
+                .putAdditionalProperty("required", JsonValue.from(List.of("file_path", "content")))
+                .build();
+
+        ChatCompletionTool writeTool = ChatCompletionTool.builder()
+                .function(FunctionDefinition.builder()
+                        .name("Write")
+                        .description("Write content to a file")
+                        .parameters(writeParameters)
+                        .build())
+                .build();
+
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.err.println("Logs from your program will appear here!");
 
@@ -76,6 +99,7 @@ public class Main {
                             .model("anthropic/claude-haiku-4.5")
                             .messages(messages)
                             .addTool(readTool)
+                            .addTool(writeTool)
                             .build()
             );
 
@@ -100,6 +124,8 @@ public class Main {
                 String result = "";
                 if ("Read".equals(name)) {
                     result = executeRead(arguments);
+                } else if ("Write".equals(name)) {
+                    result = executeWrite(arguments);
                 }
 
                 messages.add(ChatCompletionMessageParam.ofTool(
@@ -118,6 +144,22 @@ public class Main {
             return Files.readString(Path.of(filePath));
         } catch (Exception e) {
             throw new RuntimeException("failed to execute Read tool", e);
+        }
+    }
+
+    private static String executeWrite(String arguments) {
+        try {
+            JsonNode node = new ObjectMapper().readTree(arguments);
+            String filePath = node.get("file_path").asText();
+            String content = node.get("content").asText();
+            Path path = Path.of(filePath);
+            if (path.getParent() != null) {
+                Files.createDirectories(path.getParent());
+            }
+            Files.writeString(path, content);
+            return "Successfully wrote to " + filePath;
+        } catch (Exception e) {
+            throw new RuntimeException("failed to execute Write tool", e);
         }
     }
 }
