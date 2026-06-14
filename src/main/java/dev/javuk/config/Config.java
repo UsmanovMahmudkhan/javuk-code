@@ -19,11 +19,14 @@ public final class Config {
     private String apiKey;
     private String baseUrl = DEFAULT_BASE_URL;
     private String model = DEFAULT_MODEL;
+    private String provider = "openrouter";
     private String permissionMode = "ask";
     private String systemPrompt;
     private Path workingDir = Path.of("").toAbsolutePath();
     private Hooks hooks = Hooks.none();
     private List<McpServerConfig> mcpServers = List.of();
+    private boolean allowPrivateFetch = false;
+    private boolean allowOutsideWorkspace = false;
 
     public String apiKey() {
         return apiKey;
@@ -52,6 +55,17 @@ public final class Config {
     public Config model(String v) {
         if (v != null && !v.isBlank()) {
             this.model = v;
+        }
+        return this;
+    }
+
+    public String provider() {
+        return provider;
+    }
+
+    public Config provider(String v) {
+        if (v != null && !v.isBlank()) {
+            this.provider = v;
         }
         return this;
     }
@@ -106,6 +120,26 @@ public final class Config {
         if (v != null) {
             this.mcpServers = List.copyOf(v);
         }
+        return this;
+    }
+
+    /** When true, WebFetch may target private/internal/loopback hosts (default false). */
+    public boolean allowPrivateFetch() {
+        return allowPrivateFetch;
+    }
+
+    public Config allowPrivateFetch(boolean v) {
+        this.allowPrivateFetch = v;
+        return this;
+    }
+
+    /** When true, file/search tools may read or write outside the working dir (default false). */
+    public boolean allowOutsideWorkspace() {
+        return allowOutsideWorkspace;
+    }
+
+    public Config allowOutsideWorkspace(boolean v) {
+        this.allowOutsideWorkspace = v;
         return this;
     }
 }

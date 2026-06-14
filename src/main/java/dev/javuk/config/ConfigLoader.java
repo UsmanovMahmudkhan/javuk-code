@@ -34,12 +34,14 @@ public final class ConfigLoader {
         applyFile(config, Path.of(".javuk", "config.json"));
 
         // 2. Environment (overrides files).
-        String apiKey = firstNonBlank(System.getenv("OPENROUTER_API_KEY"), System.getenv("OPENAI_API_KEY"));
+        String apiKey = firstNonBlank(System.getenv("OPENROUTER_API_KEY"),
+                System.getenv("ANTHROPIC_API_KEY"), System.getenv("OPENAI_API_KEY"));
         if (apiKey != null) {
             config.apiKey(apiKey);
         }
         config.baseUrl(System.getenv("OPENROUTER_BASE_URL"));
         config.model(System.getenv("JAVUK_MODEL"));
+        config.provider(System.getenv("JAVUK_PROVIDER"));
         config.permissionMode(System.getenv("JAVUK_PERMISSION_MODE"));
 
         return config;
@@ -53,6 +55,7 @@ public final class ConfigLoader {
             JsonNode node = Json.MAPPER.readTree(Files.readString(path));
             config.model(text(node, "model"));
             config.baseUrl(text(node, "baseUrl"));
+            config.provider(text(node, "provider"));
             config.permissionMode(text(node, "permissionMode"));
             JsonNode hooks = node.get("hooks");
             if (hooks != null) {
@@ -62,6 +65,14 @@ public final class ConfigLoader {
             JsonNode mcp = node.get("mcpServers");
             if (mcp != null && mcp.isObject()) {
                 config.mcpServers(parseMcpServers(mcp));
+            }
+            JsonNode webFetch = node.get("webFetch");
+            if (webFetch != null && webFetch.has("allowPrivateHosts")) {
+                config.allowPrivateFetch(webFetch.get("allowPrivateHosts").asBoolean(false));
+            }
+            JsonNode workspace = node.get("workspace");
+            if (workspace != null && workspace.has("allowOutside")) {
+                config.allowOutsideWorkspace(workspace.get("allowOutside").asBoolean(false));
             }
         } catch (Exception ignored) {
             // malformed config file — fall back to defaults/env
@@ -73,7 +84,9 @@ public final class ConfigLoader {
         mcp.fields().forEachRemaining(entry -> {
             JsonNode s = entry.getValue();
             String command = s.path("command").asText(null);
-            if (command == null || command.isBlank()) {
+            String url = s.path("url").asText(null);
+            // A server is either stdio (command) or HTTP/SSE (url).
+            if ((command == null || command.isBlank()) && (url == null || url.isBlank())) {
                 return;
             }
             Map<String, String> env = new LinkedHashMap<>();
@@ -81,7 +94,8 @@ public final class ConfigLoader {
             if (envNode != null && envNode.isObject()) {
                 envNode.fields().forEachRemaining(e -> env.put(e.getKey(), e.getValue().asText()));
             }
-            servers.add(new McpServerConfig(entry.getKey(), command, stringList(s.get("args")), env));
+            servers.add(new McpServerConfig(
+                    entry.getKey(), command, stringList(s.get("args")), env, url));
         });
         return servers;
     }
