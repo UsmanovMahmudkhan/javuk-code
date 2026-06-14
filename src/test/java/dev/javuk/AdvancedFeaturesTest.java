@@ -83,10 +83,19 @@ class AdvancedFeaturesTest {
 
     @Test
     void taskToolDelegatesToRunner(@TempDir Path dir) throws Exception {
-        TaskTool tool = new TaskTool((desc, prompt) -> "handled: " + prompt);
+        TaskTool tool = new TaskTool((type, desc, prompt) -> "handled: " + prompt);
         JsonNode args = Json.parse("{\"description\":\"x\",\"prompt\":\"do the thing\"}");
         String result = tool.execute(args, new ToolContext(dir, PermissionService.allowAll()));
         assertEquals("handled: do the thing", result);
+    }
+
+    @Test
+    void taskToolPassesSubagentType(@TempDir Path dir) throws Exception {
+        TaskTool tool = new TaskTool((type, desc, prompt) -> "type=" + type);
+        JsonNode args = Json.parse(
+                "{\"prompt\":\"go\",\"subagent_type\":\"explorer\"}");
+        String result = tool.execute(args, new ToolContext(dir, PermissionService.allowAll()));
+        assertEquals("type=explorer", result);
     }
 
     @Test
