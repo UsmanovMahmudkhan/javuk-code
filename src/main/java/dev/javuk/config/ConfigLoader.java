@@ -85,6 +85,14 @@ public final class ConfigLoader {
             if (workspace != null && workspace.has("allowOutside")) {
                 config.allowOutsideWorkspace(workspace.get("allowOutside").asBoolean(false));
             }
+            JsonNode sound = node.get("sound");
+            if (sound != null) {
+                if (sound.isBoolean()) {
+                    config.sound(sound.asBoolean(true));
+                } else if (sound.isObject() && sound.has("enabled")) {
+                    config.sound(sound.get("enabled").asBoolean(true));
+                }
+            }
         } catch (Exception ignored) {
             // malformed config file — fall back to defaults/env
         }

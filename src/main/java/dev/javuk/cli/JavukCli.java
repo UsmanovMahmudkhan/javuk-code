@@ -56,6 +56,9 @@ public final class JavukCli implements Callable<Integer> {
             description = "Allow file/search tools to read/write outside the working dir (off by default).")
     boolean allowOutsideWorkspace;
 
+    @Option(names = "--no-sound", description = "Disable REPL notification sounds.")
+    boolean noSound;
+
     @Option(names = "--max-tokens",
             description = "Max output tokens the model may generate per turn (default 4096).")
     Integer maxTokens;
@@ -94,7 +97,9 @@ public final class JavukCli implements Callable<Integer> {
         if (allowOutsideWorkspace) {
             config.allowOutsideWorkspace(true);
         }
-
+        if (noSound) {
+            config.sound(false);
+        }
         if (maxTokens != null) {
             config.maxTokens(maxTokens);
         }
@@ -102,6 +107,7 @@ public final class JavukCli implements Callable<Integer> {
         if (prompt != null) {
             return runOneShot(config);
         }
+        dev.javuk.ui.Sound.configure(config.sound());
         Repl repl = new Repl(config);
         if (resume != null) {
             repl.resume(resume);

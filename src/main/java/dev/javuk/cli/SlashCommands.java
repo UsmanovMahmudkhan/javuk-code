@@ -114,6 +114,7 @@ public final class SlashCommands {
                 }
             }
             case "agents", "agent" -> agents(repl, arg, out);
+            case "sound" -> sound(repl, arg, out);
             default -> {
                 if (!repl.tryCustomCommand(cmd, arg)) {
                     out.println(Ansi.red("Unknown command: /" + cmd) + Ansi.gray("  (try /help)"));
@@ -143,6 +144,18 @@ public final class SlashCommands {
             return;
         }
         repl.applyAgent(arg);
+    }
+
+    private static void sound(Repl repl, String arg, PrintWriter out) {
+        if (arg.isBlank()) {
+            out.println("sound: " + Ansi.cyan(dev.javuk.ui.Sound.enabled() ? "on" : "off")
+                    + Ansi.gray("  (/sound on | off)"));
+            return;
+        }
+        boolean on = arg.equalsIgnoreCase("on") || arg.equalsIgnoreCase("true");
+        dev.javuk.ui.Sound.setEnabled(on);
+        repl.config().sound(on);
+        out.println(Ansi.green("Sound " + (on ? "enabled" : "disabled")));
     }
 
     private static void changeModel(Repl repl, String arg, PrintWriter out) {
@@ -194,6 +207,7 @@ public final class SlashCommands {
                 {"/compact", "summarize the conversation to free context"},
                 {"/commands", "list custom commands (.javuk/commands)"},
                 {"/agents [name]", "list agents, or switch persona (default to reset)"},
+                {"/sound [on|off]", "show or toggle notification sounds"},
                 {"/cost", "show estimated session cost"},
                 {"/tokens", "show token usage"},
                 {"/system", "show the system prompt"},

@@ -30,6 +30,7 @@ public final class Config {
     private List<McpServerConfig> mcpServers = List.of();
     private boolean allowPrivateFetch = false;
     private boolean allowOutsideWorkspace = false;
+    private boolean sound = true;
     private int maxTokens = DEFAULT_MAX_TOKENS;
 
     public String apiKey() {
@@ -144,6 +145,16 @@ public final class Config {
 
     public Config allowOutsideWorkspace(boolean v) {
         this.allowOutsideWorkspace = v;
+        return this;
+    }
+
+    /** When true, the REPL plays notification sounds for turn/permission/error events. */
+    public boolean sound() {
+        return sound;
+    }
+
+    public Config sound(boolean v) {
+        this.sound = v;
         return this;
     }
 

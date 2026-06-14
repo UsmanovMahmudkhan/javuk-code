@@ -60,6 +60,7 @@ public final class InteractivePermissionService implements PermissionService {
         if (allowAllForSession || allowList.allows(toolName, description)) {
             return true;
         }
+        dev.javuk.ui.Sound.play(dev.javuk.ui.Sound.Event.PERMISSION);
         String answer = prompter.ask(toolName + " wants to " + description
                 + "\n  [y] allow once  [a] allow all this session  [n] deny: ");
         if (answer == null) {

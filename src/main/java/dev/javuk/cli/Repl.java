@@ -145,10 +145,12 @@ public final class Repl {
         conversation.addUser(prompt);
 
         // Run on a worker thread so Ctrl-C cancels the turn instead of killing Javuk.
+        boolean[] failed = {false};
         Thread worker = new Thread(() -> {
             try {
                 agent.run(conversation, new ReplListener());
             } catch (Exception e) {
+                failed[0] = true;
                 dev.javuk.util.Logging.error("agent turn failed", e);
                 out.println(Ansi.red("Error: " + e.getMessage()));
             }
@@ -164,6 +166,8 @@ public final class Repl {
         } finally {
             terminal.handle(Terminal.Signal.INT, previous);
         }
+        dev.javuk.ui.Sound.play(failed[0]
+                ? dev.javuk.ui.Sound.Event.ERROR : dev.javuk.ui.Sound.Event.TURN_COMPLETE);
         out.println();
         out.flush();
     }
