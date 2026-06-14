@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.javuk.util.Json;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,29 @@ public final class ToolRegistry {
 
     public List<Tool> all() {
         return new ArrayList<>(tools.values());
+    }
+
+    /**
+     * A new registry containing only the named tools that exist here. Matching is
+     * case-insensitive against {@link Tool#name()}; unknown names are ignored. Used
+     * to enforce an agent persona's restricted tool set.
+     */
+    public ToolRegistry subset(Collection<String> names) {
+        Map<String, String> byLower = new LinkedHashMap<>();
+        for (String n : tools.keySet()) {
+            byLower.put(n.toLowerCase(), n);
+        }
+        ToolRegistry sub = new ToolRegistry();
+        for (String requested : names) {
+            if (requested == null) {
+                continue;
+            }
+            String actual = byLower.get(requested.strip().toLowerCase());
+            if (actual != null) {
+                sub.register(tools.get(actual));
+            }
+        }
+        return sub;
     }
 
     /**
