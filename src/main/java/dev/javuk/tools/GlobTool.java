@@ -47,7 +47,7 @@ public final class GlobTool implements Tool {
     @Override
     public String execute(JsonNode args, ToolContext ctx) throws Exception {
         String pattern = Json.required(args, "pattern");
-        Path base = ctx.resolve(Json.str(args, "path", "."));
+        Path base = ctx.resolveConfined(Json.str(args, "path", "."));
         if (!Files.isDirectory(base)) {
             return "Error: not a directory: " + base;
         }

@@ -70,7 +70,7 @@ public final class EditTool implements Tool {
 
     @Override
     public String execute(JsonNode args, ToolContext ctx) throws Exception {
-        Path path = ctx.resolve(Json.required(args, "file_path"));
+        Path path = ctx.resolveConfined(Json.required(args, "file_path"));
         if (!Files.exists(path)) {
             return "Error: file not found: " + path;
         }

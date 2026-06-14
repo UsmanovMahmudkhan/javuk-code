@@ -38,7 +38,7 @@ public final class ListTool implements Tool {
 
     @Override
     public String execute(JsonNode args, ToolContext ctx) throws Exception {
-        Path dir = ctx.resolve(Json.str(args, "path", "."));
+        Path dir = ctx.resolveConfined(Json.str(args, "path", "."));
         if (!Files.exists(dir)) {
             return "Error: path not found: " + dir;
         }

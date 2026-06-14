@@ -48,7 +48,7 @@ public final class GrepTool implements Tool {
     @Override
     public String execute(JsonNode args, ToolContext ctx) throws Exception {
         String patternStr = Json.required(args, "pattern");
-        Path base = ctx.resolve(Json.str(args, "path", "."));
+        Path base = ctx.resolveConfined(Json.str(args, "path", "."));
         String glob = Json.str(args, "glob", null);
         boolean ignoreCase = args.path("ignore_case").asBoolean(false);
 

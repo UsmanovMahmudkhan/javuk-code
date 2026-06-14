@@ -55,7 +55,7 @@ public final class WriteTool implements Tool {
 
     @Override
     public String execute(JsonNode args, ToolContext ctx) throws Exception {
-        Path path = ctx.resolve(Json.required(args, "file_path"));
+        Path path = ctx.resolveConfined(Json.required(args, "file_path"));
         String content = Json.required(args, "content");
 
         boolean existed = Files.exists(path);
