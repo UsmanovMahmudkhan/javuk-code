@@ -10,6 +10,8 @@ tasks to subagents.
 The project supports an interactive REPL and a non-interactive one-shot mode. It began
 as an implementation of the CodeCrafters "Build your own Claude Code" challenge.
 
+![Javuk CLI](./cli.jpeg)
+
 ## Project Overview
 
 Javuk runs an agent loop that streams model responses, executes requested tools, returns
