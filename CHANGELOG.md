@@ -17,6 +17,10 @@ All notable changes to this project are documented here. The format is based on
   errors via the platform audio player with a terminal-bell fallback. Toggle with
   `/sound`, `--no-sound`, the `sound` config key, or the `NO_SOUND` env var; silent
   when output is not a TTY.
+- **Configurable max output tokens:** `--max-tokens`, the `maxTokens` config key, and
+  the `JAVUK_MAX_TOKENS` env var (default 4096). The OpenAI-compatible client now sends
+  `max_tokens`, so Javuk works on low-credit OpenRouter accounts that previously failed
+  with a 402 over the model's full output reservation.
 
 ## [1.1.0]
 

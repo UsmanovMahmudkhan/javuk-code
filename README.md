@@ -118,6 +118,7 @@ only in a workspace where those actions are acceptable.
 --allow-private-fetch        Allow WebFetch to access private or internal hosts
 --allow-outside-workspace    Allow file and search tools outside the working directory
 --no-sound                   Disable REPL notification sounds
+--max-tokens <n>             Cap output tokens per turn (default 4096)
 -h, --help                   Show command help
 ```
 
@@ -178,6 +179,7 @@ configuration from `./.javuk/config.json`.
   "provider": "anthropic",
   "model": "claude-sonnet-4-6",
   "permissionMode": "ask",
+  "maxTokens": 4096,
   "webFetch": {
     "allowPrivateHosts": false
   },
@@ -212,6 +214,7 @@ Supported environment variables:
 | `JAVUK_MODEL` | Default model identifier |
 | `JAVUK_PROVIDER` | Provider name |
 | `JAVUK_PERMISSION_MODE` | Interactive permission mode |
+| `JAVUK_MAX_TOKENS` | Max output tokens per turn |
 | `JAVUK_DEBUG` | Enable file logging at `~/.config/javuk/javuk.log` |
 
 By default, file and search tools cannot access paths outside the working directory, and
