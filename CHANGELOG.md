@@ -13,6 +13,10 @@ All notable changes to this project are documented here. The format is based on
 - **`/agents` command:** list personas and switch the session to one
   (`/agents default` resets); the `Task` tool accepts a `subagent_type` so the
   model can delegate to an agent that runs with only that agent's tools.
+- **Notification sounds:** audible cues on turn completion, permission prompts, and
+  errors via the platform audio player with a terminal-bell fallback. Toggle with
+  `/sound`, `--no-sound`, the `sound` config key, or the `NO_SOUND` env var; silent
+  when output is not a TTY.
 
 ## [1.1.0]
 

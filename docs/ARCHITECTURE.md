@@ -80,6 +80,9 @@ once the stream completes. Token usage is read from the final chunk.
   optional model. `/agents <name>` applies one to the main session; `Task`'s
   `subagent_type` applies one to a sub-agent. Restriction is enforced by simply not
   registering the tools the persona doesn't list.
+- **Notification sounds** — `ui.Sound` plays event cues (turn / permission / error)
+  on a daemon thread via the platform audio player, falling back to the terminal
+  bell, gated like `Ansi` (TTY + `NO_SOUND`) plus a runtime toggle.
 - **Parallel tools** — when a turn's tool calls are all read-only, the loop runs
   them on virtual threads and collects results in order; any mutating batch stays
   serial so permission prompts never overlap.

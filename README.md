@@ -38,6 +38,7 @@ For an implementation overview, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Pre-tool and post-tool shell hooks
 - Project-specific commands from `.javuk/commands/*.md`
 - Selectable agent personas — built-in and user-defined — with restricted tool sets
+- Notification sounds for turn completion, permission prompts, and errors
 - Automatic context loading from `JAVUK.md`, `AGENTS.md`, or `CLAUDE.md`
 
 ## Technology Stack
@@ -116,6 +117,7 @@ only in a workspace where those actions are acceptable.
 --resume [id]                Resume a saved session, or the most recent session
 --allow-private-fetch        Allow WebFetch to access private or internal hosts
 --allow-outside-workspace    Allow file and search tools outside the working directory
+--no-sound                   Disable REPL notification sounds
 -h, --help                   Show command help
 ```
 
@@ -134,6 +136,7 @@ only in a workspace where those actions are acceptable.
 | `/compact` | Replace conversation history with a generated summary |
 | `/commands` | List project-specific commands |
 | `/agents [name]` | List agent personas, or switch to one (`/agents default` to reset) |
+| `/sound [on\|off]` | Show or toggle notification sounds |
 | `/cost`, `/tokens` | Show usage information |
 | `/clear` | Clear the current conversation |
 | `/exit` | Exit the REPL |
@@ -181,6 +184,7 @@ configuration from `./.javuk/config.json`.
   "workspace": {
     "allowOutside": false
   },
+  "sound": true,
   "hooks": {
     "preTool": [],
     "postTool": []
