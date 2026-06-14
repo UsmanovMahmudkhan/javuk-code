@@ -63,12 +63,17 @@ class AdvancedFeaturesTest {
     void allowListMatchingAndPersistence(@TempDir Path dir) {
         Path file = dir.resolve("allow.json");
         AllowList list = new AllowList(file);
-        list.add("Read");                 // exact tool name
-        list.add("git status");           // substring of the preview
+        list.add("Read");                 // whole-tool allow
+        list.add("Bash: git");            // tool-scoped prefix (leading "run: " is ignored)
 
         assertTrue(list.allows("Read", "any preview"));
         assertTrue(list.allows("Bash", "run: git status"));
         assertFalse(list.allows("Write", "write /tmp/x.txt"));
+
+        // Anchored, not a loose substring: a match buried mid-command is rejected.
+        assertFalse(list.allows("Bash", "run: rm -rf x # git"));
+        // Tool scoping: a Bash pattern must not leak into another tool.
+        assertFalse(list.allows("Write", "git config"));
 
         // Reloads from disk.
         AllowList reloaded = new AllowList(file);

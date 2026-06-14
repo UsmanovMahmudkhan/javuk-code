@@ -82,7 +82,9 @@ public final class SlashCommands {
             case "permissions", "mode" -> changeMode(repl, arg, out);
             case "allow" -> {
                 if (arg.isBlank()) {
-                    out.println(Ansi.red("Usage: /allow <pattern>  e.g. /allow Bash: git status"));
+                    out.println(Ansi.red("Usage: /allow <Tool>  or  /allow <Tool>: <prefix>"));
+                    out.println(Ansi.gray("  e.g. /allow Read            (all Read actions)"));
+                    out.println(Ansi.gray("       /allow Bash: git       (commands starting with git)"));
                 } else {
                     repl.permissions().allowList().add(arg);
                     out.println(Ansi.green("Always allowing actions matching: " + arg));
@@ -162,7 +164,7 @@ public final class SlashCommands {
                 {"/models", "list models with known pricing"},
                 {"/tools", "list available tools"},
                 {"/permissions [mode]", "show or set permission mode (ask|auto|plan)"},
-                {"/allow <pattern>", "always allow actions matching a pattern"},
+                {"/allow <Tool>[: prefix]", "always allow a tool, or actions whose preview starts with prefix"},
                 {"/allowed", "list always-allow patterns"},
                 {"/save [id]", "save the conversation to a session file"},
                 {"/load <id>", "load a saved session"},
