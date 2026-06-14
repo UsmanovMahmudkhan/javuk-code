@@ -16,6 +16,9 @@ public final class Config {
     public static final String DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
     public static final String DEFAULT_MODEL = "anthropic/claude-haiku-4.5";
 
+    /** Default cap on output tokens per turn. Small enough to work on low-credit accounts. */
+    public static final int DEFAULT_MAX_TOKENS = 4096;
+
     private String apiKey;
     private String baseUrl = DEFAULT_BASE_URL;
     private String model = DEFAULT_MODEL;
@@ -27,6 +30,7 @@ public final class Config {
     private List<McpServerConfig> mcpServers = List.of();
     private boolean allowPrivateFetch = false;
     private boolean allowOutsideWorkspace = false;
+    private int maxTokens = DEFAULT_MAX_TOKENS;
 
     public String apiKey() {
         return apiKey;
@@ -140,6 +144,18 @@ public final class Config {
 
     public Config allowOutsideWorkspace(boolean v) {
         this.allowOutsideWorkspace = v;
+        return this;
+    }
+
+    /** Maximum output tokens the model may generate per turn. */
+    public int maxTokens() {
+        return maxTokens;
+    }
+
+    public Config maxTokens(int v) {
+        if (v > 0) {
+            this.maxTokens = v;
+        }
         return this;
     }
 }

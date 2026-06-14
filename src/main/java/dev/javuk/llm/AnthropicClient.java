@@ -37,8 +37,6 @@ import java.util.stream.Stream;
  */
 public final class AnthropicClient implements LlmClient {
 
-    private static final long DEFAULT_MAX_TOKENS = 8192;
-
     // Fully-qualified to avoid a clash with this class's own name.
     private final com.anthropic.client.AnthropicClient client;
     private final String model;
@@ -46,6 +44,10 @@ public final class AnthropicClient implements LlmClient {
     private final long maxTokens;
 
     public AnthropicClient(String apiKey, String model, Usage usage) {
+        this(apiKey, model, usage, dev.javuk.config.Config.DEFAULT_MAX_TOKENS);
+    }
+
+    public AnthropicClient(String apiKey, String model, Usage usage, int maxTokens) {
         this.client = AnthropicOkHttpClient.builder()
                 .apiKey(apiKey)
                 .timeout(Duration.ofMinutes(5))
@@ -53,7 +55,7 @@ public final class AnthropicClient implements LlmClient {
                 .build();
         this.model = normalizeModel(model);
         this.usage = usage;
-        this.maxTokens = DEFAULT_MAX_TOKENS;
+        this.maxTokens = maxTokens;
     }
 
     /** Native model ids have no {@code anthropic/} provider prefix. */

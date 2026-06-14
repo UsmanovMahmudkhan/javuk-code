@@ -43,6 +43,14 @@ public final class ConfigLoader {
         config.model(System.getenv("JAVUK_MODEL"));
         config.provider(System.getenv("JAVUK_PROVIDER"));
         config.permissionMode(System.getenv("JAVUK_PERMISSION_MODE"));
+        String maxTokens = System.getenv("JAVUK_MAX_TOKENS");
+        if (maxTokens != null && !maxTokens.isBlank()) {
+            try {
+                config.maxTokens(Integer.parseInt(maxTokens.strip()));
+            } catch (NumberFormatException ignored) {
+                // non-numeric env value — keep the existing setting
+            }
+        }
 
         return config;
     }
@@ -57,6 +65,9 @@ public final class ConfigLoader {
             config.baseUrl(text(node, "baseUrl"));
             config.provider(text(node, "provider"));
             config.permissionMode(text(node, "permissionMode"));
+            if (node.has("maxTokens")) {
+                config.maxTokens(node.get("maxTokens").asInt(config.maxTokens()));
+            }
             JsonNode hooks = node.get("hooks");
             if (hooks != null) {
                 config.hooks(new Hooks(stringList(hooks.get("preTool")),

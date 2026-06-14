@@ -43,8 +43,13 @@ public final class OpenAiCompatClient implements LlmClient {
     private final OpenAIClient client;
     private final String model;
     private final Usage usage;
+    private final long maxTokens;
 
     public OpenAiCompatClient(String apiKey, String baseUrl, String model, Usage usage) {
+        this(apiKey, baseUrl, model, usage, dev.javuk.config.Config.DEFAULT_MAX_TOKENS);
+    }
+
+    public OpenAiCompatClient(String apiKey, String baseUrl, String model, Usage usage, int maxTokens) {
         // The SDK retries retryable failures (429 / 5xx / timeouts) with backoff.
         this.client = OpenAIOkHttpClient.builder()
                 .apiKey(apiKey)
@@ -54,6 +59,7 @@ public final class OpenAiCompatClient implements LlmClient {
                 .build();
         this.model = model;
         this.usage = usage;
+        this.maxTokens = maxTokens;
     }
 
     @Override
@@ -63,6 +69,7 @@ public final class OpenAiCompatClient implements LlmClient {
                               Consumer<String> onContentDelta) {
         ChatCompletionCreateParams.Builder params = ChatCompletionCreateParams.builder()
                 .model(model)
+                .maxTokens(maxTokens) // sent as max_tokens — universally honoured (incl. OpenRouter)
                 .messages(toOpenAiMessages(systemPrompt, messages))
                 .streamOptions(ChatCompletionStreamOptions.builder().includeUsage(true).build());
         for (ChatCompletionTool tool : toOpenAiTools(tools)) {

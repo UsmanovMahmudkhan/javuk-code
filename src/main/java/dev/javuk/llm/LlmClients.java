@@ -10,8 +10,9 @@ public final class LlmClients {
 
     public static LlmClient create(Config config, Usage usage) {
         if ("anthropic".equalsIgnoreCase(config.provider())) {
-            return new AnthropicClient(config.apiKey(), config.model(), usage);
+            return new AnthropicClient(config.apiKey(), config.model(), usage, config.maxTokens());
         }
-        return new OpenAiCompatClient(config.apiKey(), config.baseUrl(), config.model(), usage);
+        return new OpenAiCompatClient(config.apiKey(), config.baseUrl(), config.model(), usage,
+                config.maxTokens());
     }
 }

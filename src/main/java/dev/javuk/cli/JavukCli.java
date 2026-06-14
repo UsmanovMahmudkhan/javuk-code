@@ -55,6 +55,10 @@ public final class JavukCli implements Callable<Integer> {
             description = "Allow file/search tools to read/write outside the working dir (off by default).")
     boolean allowOutsideWorkspace;
 
+    @Option(names = "--max-tokens",
+            description = "Max output tokens the model may generate per turn (default 4096).")
+    Integer maxTokens;
+
     @Option(names = "--resume", arity = "0..1", fallbackValue = "",
             description = "Resume a saved session by id, or the most recent if no id is given.")
     String resume;
@@ -88,6 +92,10 @@ public final class JavukCli implements Callable<Integer> {
         }
         if (allowOutsideWorkspace) {
             config.allowOutsideWorkspace(true);
+        }
+
+        if (maxTokens != null) {
+            config.maxTokens(maxTokens);
         }
 
         if (prompt != null) {
