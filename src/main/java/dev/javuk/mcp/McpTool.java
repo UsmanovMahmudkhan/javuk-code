@@ -3,8 +3,9 @@ package dev.javuk.mcp;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.javuk.tools.Tool;
 import dev.javuk.tools.ToolContext;
+import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.spec.McpSchema;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,16 +13,16 @@ import java.util.Map;
 /**
  * Adapts a tool discovered from an MCP server into a Javuk {@link Tool}. The
  * exposed name is namespaced as {@code <server>__<tool>} to avoid clashes with
- * built-ins; calls are forwarded to the server via {@link McpClient}.
+ * built-ins; calls are forwarded to the server via the SDK's {@link McpSyncClient}.
  */
 public final class McpTool implements Tool {
 
-    private final McpClient client;
+    private final McpSyncClient client;
     private final String serverName;
-    private final McpClient.ToolDef def;
+    private final McpSchema.Tool def;
     private final String exposedName;
 
-    public McpTool(McpClient client, String serverName, McpClient.ToolDef def) {
+    public McpTool(McpSyncClient client, String serverName, McpSchema.Tool def) {
         this.client = client;
         this.serverName = serverName;
         this.def = def;
@@ -40,23 +41,21 @@ public final class McpTool implements Tool {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Map<String, Object> properties() {
-        JsonNode schema = def.inputSchema();
-        if (schema != null && schema.has("properties")) {
-            return dev.javuk.util.Json.MAPPER.convertValue(schema.get("properties"), Map.class);
+        McpSchema.JsonSchema schema = def.inputSchema();
+        if (schema != null && schema.properties() != null) {
+            return schema.properties();
         }
         return new LinkedHashMap<>();
     }
 
     @Override
     public List<String> required() {
-        JsonNode schema = def.inputSchema();
-        List<String> req = new ArrayList<>();
-        if (schema != null && schema.path("required").isArray()) {
-            schema.get("required").forEach(n -> req.add(n.asText()));
+        McpSchema.JsonSchema schema = def.inputSchema();
+        if (schema != null && schema.required() != null) {
+            return schema.required();
         }
-        return req;
+        return List.of();
     }
 
     @Override
@@ -71,7 +70,24 @@ public final class McpTool implements Tool {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public String execute(JsonNode args, ToolContext ctx) throws Exception {
-        return client.callTool(def.name(), args);
+        Map<String, Object> arguments = args == null || args.isNull()
+                ? Map.of()
+                : dev.javuk.util.Json.MAPPER.convertValue(args, Map.class);
+
+        McpSchema.CallToolResult result =
+                client.callTool(new McpSchema.CallToolRequest(def.name(), arguments));
+
+        StringBuilder sb = new StringBuilder();
+        for (McpSchema.Content part : result.content()) {
+            if (part instanceof McpSchema.TextContent text) {
+                sb.append(text.text());
+            }
+        }
+        if (Boolean.TRUE.equals(result.isError())) {
+            return "Error from MCP tool: " + sb;
+        }
+        return sb.isEmpty() ? "(no content)" : sb.toString();
     }
 }
