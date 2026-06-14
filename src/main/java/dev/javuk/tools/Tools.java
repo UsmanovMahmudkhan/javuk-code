@@ -6,8 +6,17 @@ public final class Tools {
     private Tools() {
     }
 
-    /** A registry pre-loaded with every built-in tool. */
+    /** A registry pre-loaded with every built-in tool, with secure defaults. */
     public static ToolRegistry defaultRegistry() {
+        return defaultRegistry(false);
+    }
+
+    /**
+     * A registry pre-loaded with every built-in tool.
+     *
+     * @param allowPrivateFetch if true, WebFetch may target private/internal hosts
+     */
+    public static ToolRegistry defaultRegistry(boolean allowPrivateFetch) {
         return new ToolRegistry()
                 .register(new ReadTool())
                 .register(new WriteTool())
@@ -18,6 +27,6 @@ public final class Tools {
                 .register(new GrepTool())
                 .register(new ListTool())
                 .register(new TodoWriteTool())
-                .register(new WebFetchTool());
+                .register(new WebFetchTool(allowPrivateFetch));
     }
 }
