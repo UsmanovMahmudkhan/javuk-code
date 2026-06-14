@@ -3,6 +3,10 @@ package dev.javuk.tools;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.javuk.util.Json;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -11,6 +15,12 @@ import java.util.concurrent.TimeUnit;
  * Executes a shell command via {@code sh -c}, capturing combined stdout/stderr.
  * Output is capped and the process is killed if it exceeds the timeout so a
  * runaway command can't hang the agent.
+ *
+ * <p>Output is drained on a separate virtual thread into a bounded buffer. This
+ * is essential: reading the process stream on the calling thread would block
+ * until the stream reaches EOF (i.e. the process exits), which would defeat the
+ * timeout for commands that hang ({@code sleep 1000}) and read unbounded output
+ * fully into memory ({@code cat /dev/zero}) before any cap could apply.
  */
 public final class BashTool implements Tool {
 
@@ -62,27 +72,74 @@ public final class BashTool implements Tool {
                 .redirectErrorStream(true)
                 .start();
 
-        String output = new String(process.getInputStream().readAllBytes());
+        // Drain output concurrently so a full pipe never blocks the child and so the
+        // timeout below is enforced even when the command produces no output.
+        BoundedDrain drain = new BoundedDrain(process.getInputStream(), MAX_OUTPUT_CHARS);
+        Thread drainThread = Thread.ofVirtual().name("bash-drain").start(drain);
 
         boolean finished = process.waitFor(timeout, TimeUnit.SECONDS);
         if (!finished) {
             process.destroyForcibly();
-            return truncate(output) + "\n[command timed out after " + timeout + "s and was killed]";
+            process.waitFor();           // reap the killed process
+            drainThread.join(1_000);     // let the drain finish at EOF (best-effort)
+            String body = drain.text();
+            return body + (body.isEmpty() ? "" : "\n")
+                    + "[command timed out after " + timeout + "s and was killed]";
         }
 
+        drainThread.join();              // process exited: stream is at EOF, drain returns
         int exit = process.exitValue();
-        String body = truncate(output);
+        String body = drain.text();
         if (exit != 0) {
             return body + (body.isEmpty() ? "" : "\n") + "[exit code " + exit + "]";
         }
         return body.isEmpty() ? "(command produced no output)" : body;
     }
 
-    private static String truncate(String s) {
-        if (s.length() <= MAX_OUTPUT_CHARS) {
+    /**
+     * Reads a process stream to EOF, retaining at most {@code cap} bytes while
+     * continuing to drain (and count) the rest so the child never blocks on a
+     * full pipe. Memory use is bounded by {@code cap}.
+     */
+    private static final class BoundedDrain implements Runnable {
+        private final InputStream in;
+        private final int cap;
+        private final ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        private volatile long dropped;
+
+        BoundedDrain(InputStream in, int cap) {
+            this.in = in;
+            this.cap = cap;
+        }
+
+        @Override
+        public void run() {
+            byte[] buf = new byte[8192];
+            try {
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    int room = cap - captured.size();
+                    if (room > 0) {
+                        int take = Math.min(room, n);
+                        captured.write(buf, 0, take);
+                        if (n > take) {
+                            dropped += (n - take);
+                        }
+                    } else {
+                        dropped += n;
+                    }
+                }
+            } catch (IOException ignored) {
+                // stream closed (e.g. the process was killed) — stop draining
+            }
+        }
+
+        String text() {
+            String s = captured.toString(StandardCharsets.UTF_8);
+            if (dropped > 0) {
+                return s + "\n… [output truncated, " + dropped + " more chars]";
+            }
             return s;
         }
-        return s.substring(0, MAX_OUTPUT_CHARS) + "\n… [output truncated, "
-                + (s.length() - MAX_OUTPUT_CHARS) + " more chars]";
     }
 }
