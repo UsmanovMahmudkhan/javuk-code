@@ -21,6 +21,8 @@ All notable changes to this project are documented here. The format is based on
   the `JAVUK_MAX_TOKENS` env var (default 4096). The OpenAI-compatible client now sends
   `max_tokens`, so Javuk works on low-credit OpenRouter accounts that previously failed
   with a 402 over the model's full output reservation.
+- Tests for the agent registry, tool-set restriction, sub-agent persona selection,
+  the sound toggle, and the max-tokens config.
 
 ## [1.1.0]
 
