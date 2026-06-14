@@ -9,7 +9,7 @@ CodeCrafters jar manifest) that delegates to `cli.JavukCli`.
 | Package | Responsibility |
 |---|---|
 | `cli` | Entry point, argument parsing (picocli), the JLine REPL, slash commands |
-| `agent` | The agent loop, conversation/transcript state, system prompt, listener hook |
+| `agent` | The agent loop, conversation/transcript state, system prompt, subagents, agent personas |
 | `llm` | Provider-agnostic chat client, streaming, model catalog, usage/cost |
 | `tools` | The `Tool` interface, registry/dispatch, and the 10 built-in tools |
 | `permission` | Permission modes, the interactive gate, and the persistent allowlist |
@@ -73,6 +73,13 @@ once the stream completes. Token usage is read from the final chunk.
 - **Subagents** — the `Task` tool runs a nested `Agent` (`SubAgent`) sharing the
   parent's LLM client and tool context but with a clean conversation and no
   `Task` tool of its own, so delegation can't recurse without bound.
+- **Agent personas** — `AgentRegistry` loads `AgentDefinition`s (markdown +
+  frontmatter) from built-in resources, the user dir, and the project's
+  `.javuk/agents/`, later sources overriding earlier by name. A persona carries a
+  system prompt, an optional `ToolRegistry.subset(...)` of allowed tools, and an
+  optional model. `/agents <name>` applies one to the main session; `Task`'s
+  `subagent_type` applies one to a sub-agent. Restriction is enforced by simply not
+  registering the tools the persona doesn't list.
 - **Parallel tools** — when a turn's tool calls are all read-only, the loop runs
   them on virtual threads and collects results in order; any mutating batch stays
   serial so permission prompts never overlap.

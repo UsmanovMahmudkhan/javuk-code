@@ -37,6 +37,7 @@ For an implementation overview, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Persistent sessions, token usage, and estimated cost reporting
 - Pre-tool and post-tool shell hooks
 - Project-specific commands from `.javuk/commands/*.md`
+- Selectable agent personas — built-in and user-defined — with restricted tool sets
 - Automatic context loading from `JAVUK.md`, `AGENTS.md`, or `CLAUDE.md`
 
 ## Technology Stack
@@ -132,6 +133,7 @@ only in a workspace where those actions are acceptable.
 | `/save [id]`, `/load <id>`, `/sessions` | Manage sessions |
 | `/compact` | Replace conversation history with a generated summary |
 | `/commands` | List project-specific commands |
+| `/agents [name]` | List agent personas, or switch to one (`/agents default` to reset) |
 | `/cost`, `/tokens` | Show usage information |
 | `/clear` | Clear the current conversation |
 | `/exit` | Exit the REPL |
@@ -259,6 +261,40 @@ Run it in the REPL:
 ```text
 /review src/main/java/Main.java
 ```
+
+## Agents
+
+Agents are reusable personas: a system prompt, an optional restricted tool set, and an
+optional model override. Javuk ships four built-ins — `code-reviewer`, `planner`,
+`test-writer`, and `explorer` — and you can add your own.
+
+Switch the active session to an agent (this resets the conversation):
+
+```text
+/agents              # list agents, highlighting the active one
+/agents explorer     # switch to the read-only explorer persona
+/agents default      # return to the standard Javuk agent
+```
+
+The model can also delegate to an agent through the `Task` tool by passing a
+`subagent_type`, and the sub-agent runs with only that agent's tools.
+
+Define your own agent at `~/.config/javuk/agents/<name>.md` (user-global) or
+`.javuk/agents/<name>.md` (project, which overrides a built-in of the same name):
+
+```md
+---
+name: doc-writer
+description: Writes and improves documentation
+tools: Read, Grep, Glob, Edit, Write
+model: anthropic/claude-sonnet-4-6
+---
+You write clear, concise documentation. Read the code first, then update the docs.
+```
+
+All frontmatter keys are optional: `name` defaults to the file name, omit `tools` to grant
+the full tool set, and omit `model` to use the session model. The text after the
+frontmatter is the agent's system prompt.
 
 ## Development
 

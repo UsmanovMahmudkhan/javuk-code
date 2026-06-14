@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- **Agent personas:** selectable agents with their own system prompt, restricted
+  tool set, and optional model. Four built-ins (`code-reviewer`, `planner`,
+  `test-writer`, `explorer`) plus user-defined `.javuk/agents/*.md` and
+  `~/.config/javuk/agents/*.md` (project overrides built-ins by name).
+- **`/agents` command:** list personas and switch the session to one
+  (`/agents default` resets); the `Task` tool accepts a `subagent_type` so the
+  model can delegate to an agent that runs with only that agent's tools.
+
 ## [1.1.0]
 
 A major capability upgrade focused on what makes an agent "advanced".
