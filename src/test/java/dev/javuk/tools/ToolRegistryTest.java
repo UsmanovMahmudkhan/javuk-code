@@ -45,7 +45,7 @@ class ToolRegistryTest {
     }
 
     @Test
-    void emitsSpecForEveryTool(@TempDir Path dir) {
-        assertTrue(registry().specs().size() >= 3);
+    void exposesEveryRegisteredTool(@TempDir Path dir) {
+        assertTrue(registry().all().size() >= 3);
     }
 }

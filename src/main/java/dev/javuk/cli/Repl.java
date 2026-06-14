@@ -36,7 +36,7 @@ public final class Repl {
 
     private final Config config;
     private final Usage usage = new Usage();
-    private final ToolRegistry tools = Tools.defaultRegistry();
+    private final ToolRegistry tools;
     private final SessionStore sessions = new SessionStore();
 
     private Conversation conversation;
@@ -52,6 +52,7 @@ public final class Repl {
 
     public Repl(Config config) {
         this.config = config;
+        this.tools = Tools.defaultRegistry(config.allowPrivateFetch());
     }
 
     /** Resume a saved session at startup. Pass "" to continue the most recent one. */
@@ -254,7 +255,8 @@ public final class Repl {
         summarizer.addUser("Summarize this conversation concisely, preserving decisions, "
                 + "file paths, and any unfinished tasks:\n\n" + transcript);
         try {
-            String summary = llm.chat(summarizer.messages(), java.util.List.of(), s -> {}).content();
+            String summary = llm.chat(summarizer.systemPrompt(), summarizer.chatMessages(),
+                    java.util.List.of(), s -> {}).content();
             conversation.reset();
             conversation.addUser("[Summary of earlier conversation]\n" + summary);
             return true;
@@ -270,8 +272,9 @@ public final class Repl {
             this.agent = null;
             return;
         }
-        this.llm = new OpenAiCompatClient(config.apiKey(), config.baseUrl(), config.model(), usage);
-        ToolContext ctx = new ToolContext(config.workingDir(), permissions, config.hooks());
+        this.llm = dev.javuk.llm.LlmClients.create(config, usage);
+        ToolContext ctx = new ToolContext(config.workingDir(), permissions, config.hooks(),
+                config.allowOutsideWorkspace());
         tools.register(new dev.javuk.tools.TaskTool(
                 (desc, p) -> dev.javuk.agent.SubAgent.run(llm, ctx, p)));
         this.agent = new Agent(llm, tools, ctx);

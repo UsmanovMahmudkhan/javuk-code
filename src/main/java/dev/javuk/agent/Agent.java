@@ -44,8 +44,8 @@ public final class Agent {
                 return msg;
             }
             listener.onThinking();
-            AssistantTurn turn = llm.chat(
-                    conversation.messages(), tools.specs(), listener::onAssistantDelta);
+            AssistantTurn turn = llm.chat(conversation.systemPrompt(),
+                    conversation.chatMessages(), tools.all(), listener::onAssistantDelta);
 
             conversation.addAssistantTurn(turn);
 

@@ -1,27 +1,32 @@
 package dev.javuk.llm;
 
-import com.openai.models.chat.completions.ChatCompletionMessageParam;
-import com.openai.models.chat.completions.ChatCompletionTool;
+import dev.javuk.tools.Tool;
 
 import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Provider-agnostic chat interface. All current providers (OpenRouter, OpenAI,
- * Ollama, Anthropic-via-OpenRouter) speak the OpenAI-compatible protocol and are
- * served by {@link OpenAiCompatClient}; this interface is the seam where a truly
- * different provider could be slotted in.
+ * Provider-neutral chat interface. Inputs are Javuk's own neutral types
+ * ({@link ChatMessage}, {@link Tool}) so the agent loop never depends on any
+ * provider SDK. Implementations translate them to their wire format:
+ * {@link OpenAiCompatClient} (OpenRouter / OpenAI / Ollama) and
+ * {@link AnthropicClient} (native Anthropic API).
  */
 public interface LlmClient {
 
     /**
-     * Sends the conversation + tool specs and returns the assistant turn.
+     * Sends the system prompt + conversation + tool specs and returns the
+     * assistant turn (streaming text fragments to {@code onContentDelta}).
      *
+     * @param systemPrompt   the system prompt, or null/blank for none
+     * @param messages       the conversation so far (no system message)
+     * @param tools          the tools the model may call
      * @param onContentDelta invoked with each streamed text fragment as it
-     *                       arrives; pass a no-op consumer for non-interactive use.
+     *                       arrives; pass a no-op consumer for non-interactive use
      */
-    AssistantTurn chat(List<ChatCompletionMessageParam> messages,
-                       List<ChatCompletionTool> tools,
+    AssistantTurn chat(String systemPrompt,
+                       List<ChatMessage> messages,
+                       List<Tool> tools,
                        Consumer<String> onContentDelta);
 
     /** The model id this client talks to (for display and cost lookups). */

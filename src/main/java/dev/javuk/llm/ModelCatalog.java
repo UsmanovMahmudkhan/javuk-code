@@ -14,9 +14,14 @@ public final class ModelCatalog {
 
     // Approximate public list prices, USD per 1,000,000 tokens.
     private static final Map<String, Price> PRICES = Map.ofEntries(
+            // OpenRouter-style ids
             Map.entry("anthropic/claude-haiku-4.5", new Price(1.00, 5.00)),
             Map.entry("anthropic/claude-sonnet-4.6", new Price(3.00, 15.00)),
             Map.entry("anthropic/claude-opus-4.8", new Price(15.00, 75.00)),
+            // Native Anthropic API ids (used with --provider anthropic)
+            Map.entry("claude-haiku-4-5", new Price(1.00, 5.00)),
+            Map.entry("claude-sonnet-4-6", new Price(3.00, 15.00)),
+            Map.entry("claude-opus-4-8", new Price(15.00, 75.00)),
             Map.entry("openai/gpt-4o-mini", new Price(0.15, 0.60)),
             Map.entry("openai/gpt-4o", new Price(2.50, 10.00))
     );

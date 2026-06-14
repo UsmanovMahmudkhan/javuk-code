@@ -1,10 +1,6 @@
 package dev.javuk.tools;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.openai.core.JsonValue;
-import com.openai.models.FunctionDefinition;
-import com.openai.models.FunctionParameters;
-import com.openai.models.chat.completions.ChatCompletionTool;
 import dev.javuk.util.Json;
 
 import java.util.ArrayList;
@@ -13,9 +9,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Holds the set of tools available to the agent. Converts each {@link Tool}
- * into the OpenAI-compatible {@link ChatCompletionTool} spec and dispatches
- * tool calls by name, enforcing permissions for mutating tools.
+ * Holds the set of tools available to the agent and dispatches tool calls by
+ * name, enforcing permissions for mutating tools. Each LLM client converts
+ * {@link #all()} into its own provider-specific tool spec.
  */
 public final class ToolRegistry {
 
@@ -36,26 +32,6 @@ public final class ToolRegistry {
 
     public List<Tool> all() {
         return new ArrayList<>(tools.values());
-    }
-
-    /** Builds the tool specs to send with each chat-completion request. */
-    public List<ChatCompletionTool> specs() {
-        List<ChatCompletionTool> specs = new ArrayList<>();
-        for (Tool tool : tools.values()) {
-            FunctionParameters params = FunctionParameters.builder()
-                    .putAdditionalProperty("type", JsonValue.from("object"))
-                    .putAdditionalProperty("properties", JsonValue.from(tool.properties()))
-                    .putAdditionalProperty("required", JsonValue.from(tool.required()))
-                    .build();
-            specs.add(ChatCompletionTool.builder()
-                    .function(FunctionDefinition.builder()
-                            .name(tool.name())
-                            .description(tool.description())
-                            .parameters(params)
-                            .build())
-                    .build());
-        }
-        return specs;
     }
 
     /**

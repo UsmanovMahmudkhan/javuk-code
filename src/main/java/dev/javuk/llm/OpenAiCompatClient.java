@@ -2,13 +2,22 @@ package dev.javuk.llm;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.JsonValue;
 import com.openai.core.Timeout;
 import com.openai.core.http.StreamResponse;
+import com.openai.models.FunctionDefinition;
+import com.openai.models.FunctionParameters;
+import com.openai.models.chat.completions.ChatCompletionAssistantMessageParam;
 import com.openai.models.chat.completions.ChatCompletionChunk;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import com.openai.models.chat.completions.ChatCompletionMessageParam;
+import com.openai.models.chat.completions.ChatCompletionMessageToolCall;
 import com.openai.models.chat.completions.ChatCompletionStreamOptions;
+import com.openai.models.chat.completions.ChatCompletionSystemMessageParam;
 import com.openai.models.chat.completions.ChatCompletionTool;
+import com.openai.models.chat.completions.ChatCompletionToolMessageParam;
+import com.openai.models.chat.completions.ChatCompletionUserMessageParam;
+import dev.javuk.tools.Tool;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -23,10 +32,11 @@ import java.util.stream.Stream;
  * OpenAI-compatible endpoint by varying the base URL — OpenRouter (default),
  * OpenAI, a local Ollama server, etc.
  *
- * <p>Responses are streamed: text fragments are forwarded to {@code onContentDelta}
- * as they arrive while tool-call deltas are accumulated by index and assembled
- * into the returned {@link AssistantTurn}. Token usage is captured from the final
- * chunk into {@link Usage}.
+ * <p>Neutral {@link ChatMessage}/{@link Tool} inputs are translated into SDK
+ * request types here. Responses are streamed: text fragments are forwarded to
+ * {@code onContentDelta} as they arrive while tool-call deltas are accumulated by
+ * index and assembled into the returned {@link AssistantTurn}. Token usage is
+ * captured from the final chunk into {@link Usage}.
  */
 public final class OpenAiCompatClient implements LlmClient {
 
@@ -47,14 +57,15 @@ public final class OpenAiCompatClient implements LlmClient {
     }
 
     @Override
-    public AssistantTurn chat(List<ChatCompletionMessageParam> messages,
-                              List<ChatCompletionTool> tools,
+    public AssistantTurn chat(String systemPrompt,
+                              List<ChatMessage> messages,
+                              List<Tool> tools,
                               Consumer<String> onContentDelta) {
         ChatCompletionCreateParams.Builder params = ChatCompletionCreateParams.builder()
                 .model(model)
-                .messages(messages)
+                .messages(toOpenAiMessages(systemPrompt, messages))
                 .streamOptions(ChatCompletionStreamOptions.builder().includeUsage(true).build());
-        for (ChatCompletionTool tool : tools) {
+        for (ChatCompletionTool tool : toOpenAiTools(tools)) {
             params.addTool(tool);
         }
 
@@ -109,6 +120,72 @@ public final class OpenAiCompatClient implements LlmClient {
     @Override
     public String model() {
         return model;
+    }
+
+    /** Builds the SDK message list (system message first) from neutral messages. */
+    private static List<ChatCompletionMessageParam> toOpenAiMessages(
+            String systemPrompt, List<ChatMessage> messages) {
+        List<ChatCompletionMessageParam> out = new ArrayList<>();
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            out.add(ChatCompletionMessageParam.ofSystem(
+                    ChatCompletionSystemMessageParam.builder().content(systemPrompt).build()));
+        }
+        for (ChatMessage m : messages) {
+            switch (m.role()) {
+                case "user" -> out.add(ChatCompletionMessageParam.ofUser(
+                        ChatCompletionUserMessageParam.builder().content(m.content()).build()));
+                case "assistant" -> out.add(ChatCompletionMessageParam.ofAssistant(toAssistantParam(m)));
+                case "tool" -> out.add(ChatCompletionMessageParam.ofTool(
+                        ChatCompletionToolMessageParam.builder()
+                                .toolCallId(m.toolCallId())
+                                .content(m.content())
+                                .build()));
+                default -> { /* ignore unknown roles */ }
+            }
+        }
+        return out;
+    }
+
+    private static ChatCompletionAssistantMessageParam toAssistantParam(ChatMessage m) {
+        ChatCompletionAssistantMessageParam.Builder builder =
+                ChatCompletionAssistantMessageParam.builder();
+        if (m.content() != null && !m.content().isEmpty()) {
+            builder.content(m.content());
+        }
+        if (m.hasToolCalls()) {
+            List<ChatCompletionMessageToolCall> calls = new ArrayList<>();
+            for (AssistantTurn.ToolCall c : m.toolCalls()) {
+                calls.add(ChatCompletionMessageToolCall.builder()
+                        .id(c.id())
+                        .function(ChatCompletionMessageToolCall.Function.builder()
+                                .name(c.name())
+                                .arguments(c.arguments())
+                                .build())
+                        .build());
+            }
+            builder.toolCalls(calls);
+        }
+        return builder.build();
+    }
+
+    /** Converts neutral tools into OpenAI function-tool specs. */
+    private static List<ChatCompletionTool> toOpenAiTools(List<Tool> tools) {
+        List<ChatCompletionTool> specs = new ArrayList<>();
+        for (Tool tool : tools) {
+            FunctionParameters fnParams = FunctionParameters.builder()
+                    .putAdditionalProperty("type", JsonValue.from("object"))
+                    .putAdditionalProperty("properties", JsonValue.from(tool.properties()))
+                    .putAdditionalProperty("required", JsonValue.from(tool.required()))
+                    .build();
+            specs.add(ChatCompletionTool.builder()
+                    .function(FunctionDefinition.builder()
+                            .name(tool.name())
+                            .description(tool.description())
+                            .parameters(fnParams)
+                            .build())
+                    .build());
+        }
+        return specs;
     }
 
     /** Mutable accumulator for a streamed tool call. */

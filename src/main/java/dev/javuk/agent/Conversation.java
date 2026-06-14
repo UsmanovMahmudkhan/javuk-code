@@ -1,20 +1,17 @@
 package dev.javuk.agent;
 
-import com.openai.models.chat.completions.ChatCompletionAssistantMessageParam;
-import com.openai.models.chat.completions.ChatCompletionMessageParam;
-import com.openai.models.chat.completions.ChatCompletionMessageToolCall;
-import com.openai.models.chat.completions.ChatCompletionSystemMessageParam;
-import com.openai.models.chat.completions.ChatCompletionToolMessageParam;
-import com.openai.models.chat.completions.ChatCompletionUserMessageParam;
 import dev.javuk.llm.AssistantTurn;
+import dev.javuk.llm.ChatMessage;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
- * The mutable message history for one agent session. Maintains two parallel
- * views: the SDK request params sent to the model, and a serialisable
- * {@link Entry} transcript used to save/restore sessions.
+ * The mutable message history for one agent session. Stores a provider-neutral
+ * transcript of {@link Entry} records (also used to save/restore sessions) plus
+ * the system prompt; {@link #chatMessages()} projects it into the neutral wire
+ * type each {@link dev.javuk.llm.LlmClient} consumes.
  */
 public final class Conversation {
 
@@ -34,44 +31,46 @@ public final class Conversation {
         }
     }
 
-    private final List<ChatCompletionMessageParam> messages = new ArrayList<>();
     private final List<Entry> entries = new ArrayList<>();
-    private ChatCompletionMessageParam systemMessage;
+    private String systemPrompt;
 
     public Conversation() {
     }
 
     public Conversation withSystemPrompt(String systemPrompt) {
         if (systemPrompt != null && !systemPrompt.isBlank()) {
-            systemMessage = ChatCompletionMessageParam.ofSystem(
-                    ChatCompletionSystemMessageParam.builder().content(systemPrompt).build());
-            messages.add(systemMessage);
+            this.systemPrompt = systemPrompt;
         }
         return this;
     }
 
     public void addUser(String content) {
-        messages.add(ChatCompletionMessageParam.ofUser(
-                ChatCompletionUserMessageParam.builder().content(content).build()));
         entries.add(Entry.user(content));
     }
 
-    /** Records one assistant turn: builds the SDK param and the transcript entry. */
     public void addAssistantTurn(AssistantTurn turn) {
-        messages.add(ChatCompletionMessageParam.ofAssistant(toParam(turn)));
         entries.add(Entry.assistant(turn.content(), turn.toolCalls()));
     }
 
     public void addToolResult(String toolCallId, String content) {
-        messages.add(ChatCompletionMessageParam.ofTool(
-                ChatCompletionToolMessageParam.builder()
-                        .toolCallId(toolCallId)
-                        .content(content)
-                        .build()));
         entries.add(Entry.tool(toolCallId, content));
     }
 
-    public List<ChatCompletionMessageParam> messages() {
+    public String systemPrompt() {
+        return systemPrompt;
+    }
+
+    /** The conversation projected into the neutral wire type (no system message). */
+    public List<ChatMessage> chatMessages() {
+        List<ChatMessage> messages = new ArrayList<>(entries.size());
+        for (Entry e : entries) {
+            messages.add(switch (e.role()) {
+                case "user" -> ChatMessage.user(e.content());
+                case "assistant" -> ChatMessage.assistant(e.content(), e.toolCalls());
+                case "tool" -> ChatMessage.tool(e.toolCallId(), e.content());
+                default -> ChatMessage.user(e.content());
+            });
+        }
         return messages;
     }
 
@@ -80,53 +79,55 @@ public final class Conversation {
     }
 
     public int size() {
-        return messages.size();
+        return entries.size();
     }
 
-    /** Clears history but preserves the system message, if any. */
+    /** Clears history but preserves the system prompt, if any. */
     public void reset() {
-        messages.clear();
         entries.clear();
-        if (systemMessage != null) {
-            messages.add(systemMessage);
-        }
     }
 
-    /** Replays a saved transcript onto a fresh conversation (with optional system prompt). */
+    /**
+     * Replays a saved transcript onto a fresh conversation (with optional system
+     * prompt). Repairs dangling tool calls: a session saved or cancelled right
+     * after an assistant {@code tool_calls} turn (before its results were
+     * recorded) would otherwise replay into an API-invalid sequence — providers
+     * require every {@code tool_call} to be answered by a {@code tool} message
+     * before the next user/assistant message. Any unanswered call id is filled
+     * with a {@code "[no result recorded]"} placeholder.
+     */
     public static Conversation fromEntries(List<Entry> entries, String systemPrompt) {
         Conversation c = new Conversation().withSystemPrompt(systemPrompt);
+        LinkedHashSet<String> pending = new LinkedHashSet<>();
         for (Entry e : entries) {
             switch (e.role()) {
-                case "user" -> c.addUser(e.content());
-                case "assistant" -> c.addAssistantTurn(
-                        new AssistantTurn(e.content(), e.toolCalls()));
-                case "tool" -> c.addToolResult(e.toolCallId(), e.content());
+                case "user" -> {
+                    fillPending(c, pending);
+                    c.addUser(e.content());
+                }
+                case "assistant" -> {
+                    fillPending(c, pending);
+                    c.addAssistantTurn(new AssistantTurn(e.content(), e.toolCalls()));
+                    for (AssistantTurn.ToolCall call : e.toolCalls()) {
+                        pending.add(call.id());
+                    }
+                }
+                case "tool" -> {
+                    c.addToolResult(e.toolCallId(), e.content());
+                    pending.remove(e.toolCallId());
+                }
                 default -> { /* ignore unknown roles */ }
             }
         }
+        fillPending(c, pending);
         return c;
     }
 
-    /** Rebuilds the request-side assistant message (content + tool calls) for history. */
-    private static ChatCompletionAssistantMessageParam toParam(AssistantTurn turn) {
-        ChatCompletionAssistantMessageParam.Builder builder =
-                ChatCompletionAssistantMessageParam.builder();
-        if (turn.content() != null && !turn.content().isEmpty()) {
-            builder.content(turn.content());
+    /** Answers any tool calls left unanswered with a placeholder, keeping the sequence valid. */
+    private static void fillPending(Conversation c, LinkedHashSet<String> pending) {
+        for (String callId : pending) {
+            c.addToolResult(callId, "[no result recorded]");
         }
-        if (turn.hasToolCalls()) {
-            List<ChatCompletionMessageToolCall> calls = new ArrayList<>();
-            for (AssistantTurn.ToolCall c : turn.toolCalls()) {
-                calls.add(ChatCompletionMessageToolCall.builder()
-                        .id(c.id())
-                        .function(ChatCompletionMessageToolCall.Function.builder()
-                                .name(c.name())
-                                .arguments(c.arguments())
-                                .build())
-                        .build());
-            }
-            builder.toolCalls(calls);
-        }
-        return builder.build();
+        pending.clear();
     }
 }

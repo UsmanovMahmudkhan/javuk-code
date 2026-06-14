@@ -45,8 +45,9 @@ class SessionStoreTest {
 
         Session loaded = store.load("s2");
         Conversation rebuilt = Conversation.fromEntries(loaded.entries(), "system");
-        // system + user + assistant = 3 messages
-        assertEquals(3, rebuilt.size());
+        // The system prompt is held separately now; entries are user + assistant.
+        assertEquals(2, rebuilt.size());
+        assertEquals("system", rebuilt.systemPrompt());
     }
 
     @Test

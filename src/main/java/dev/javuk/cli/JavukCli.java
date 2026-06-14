@@ -6,7 +6,6 @@ import dev.javuk.agent.Conversation;
 import dev.javuk.agent.SubAgent;
 import dev.javuk.config.Config;
 import dev.javuk.config.ConfigLoader;
-import dev.javuk.llm.OpenAiCompatClient;
 import dev.javuk.llm.Provider;
 import dev.javuk.llm.Usage;
 import dev.javuk.permission.PermissionService;
@@ -38,7 +37,8 @@ public final class JavukCli implements Callable<Integer> {
     @Option(names = "--base-url", description = "OpenAI-compatible base URL (overrides --provider).")
     String baseUrl;
 
-    @Option(names = "--provider", description = "Provider preset: openrouter (default), openai, ollama.")
+    @Option(names = "--provider",
+            description = "Provider preset: openrouter (default), openai, ollama, anthropic (native).")
     String provider;
 
     @Option(names = "--yolo", description = "Auto-approve all tool actions (no permission prompts).")
@@ -46,6 +46,14 @@ public final class JavukCli implements Callable<Integer> {
 
     @Option(names = {"--readonly", "--plan"}, description = "Block all mutating tools (plan mode).")
     boolean readonly;
+
+    @Option(names = "--allow-private-fetch",
+            description = "Allow WebFetch to reach private/internal hosts (off by default).")
+    boolean allowPrivateFetch;
+
+    @Option(names = "--allow-outside-workspace",
+            description = "Allow file/search tools to read/write outside the working dir (off by default).")
+    boolean allowOutsideWorkspace;
 
     @Option(names = "--resume", arity = "0..1", fallbackValue = "",
             description = "Resume a saved session by id, or the most recent if no id is given.")
@@ -63,6 +71,7 @@ public final class JavukCli implements Callable<Integer> {
         // Provider preset fills baseUrl + a default key; --base-url still wins.
         if (provider != null) {
             Provider p = Provider.from(provider);
+            config.provider(p.name().toLowerCase());
             config.baseUrl(p.baseUrl());
             String key = System.getenv(p.apiKeyEnv());
             config.apiKey(key != null ? key : p.defaultApiKey() != null ? p.defaultApiKey() : config.apiKey());
@@ -73,6 +82,12 @@ public final class JavukCli implements Callable<Integer> {
             config.permissionMode("auto");
         } else if (readonly) {
             config.permissionMode("plan");
+        }
+        if (allowPrivateFetch) {
+            config.allowPrivateFetch(true);
+        }
+        if (allowOutsideWorkspace) {
+            config.allowOutsideWorkspace(true);
         }
 
         if (prompt != null) {
@@ -92,10 +107,11 @@ public final class JavukCli implements Callable<Integer> {
         }
 
         Usage usage = new Usage();
-        var llm = new OpenAiCompatClient(config.apiKey(), config.baseUrl(), config.model(), usage);
-        ToolRegistry tools = Tools.defaultRegistry();
+        var llm = dev.javuk.llm.LlmClients.create(config, usage);
+        ToolRegistry tools = Tools.defaultRegistry(config.allowPrivateFetch());
         // One-shot is non-interactive: cannot prompt, so allow tool actions.
-        ToolContext ctx = new ToolContext(config.workingDir(), PermissionService.allowAll(), config.hooks());
+        ToolContext ctx = new ToolContext(config.workingDir(), PermissionService.allowAll(),
+                config.hooks(), config.allowOutsideWorkspace());
         tools.register(new TaskTool((desc, p) -> SubAgent.run(llm, ctx, p)));
         Agent agent = new Agent(llm, tools, ctx);
 
