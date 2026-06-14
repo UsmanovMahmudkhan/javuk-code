@@ -113,6 +113,7 @@ public final class SlashCommands {
                     names.forEach(n -> out.println("  /" + n));
                 }
             }
+            case "agents", "agent" -> agents(repl, arg, out);
             default -> {
                 if (!repl.tryCustomCommand(cmd, arg)) {
                     out.println(Ansi.red("Unknown command: /" + cmd) + Ansi.gray("  (try /help)"));
@@ -121,6 +122,27 @@ public final class SlashCommands {
         }
         out.flush();
         return Action.HANDLED;
+    }
+
+    private static void agents(Repl repl, String arg, PrintWriter out) {
+        var registry = repl.agents();
+        if (arg.isBlank()) {
+            if (registry == null || registry.isEmpty()) {
+                out.println(Ansi.gray("(no agents; add .javuk/agents/<name>.md)"));
+                return;
+            }
+            String active = repl.activeAgent();
+            out.println(Ansi.bold("Agents:") + Ansi.gray("  (/agents <name> to switch, "
+                    + "/agents default to reset)"));
+            out.println("  " + (active == null ? Ansi.green("• default") : "  default")
+                    + Ansi.gray(" — standard Javuk coding agent"));
+            for (dev.javuk.agent.AgentDefinition a : registry.all()) {
+                String marker = a.name().equals(active) ? Ansi.green("• ") : "  ";
+                out.println("  " + marker + Ansi.cyan(a.name()) + Ansi.gray(" — " + a.description()));
+            }
+            return;
+        }
+        repl.applyAgent(arg);
     }
 
     private static void changeModel(Repl repl, String arg, PrintWriter out) {
@@ -171,6 +193,7 @@ public final class SlashCommands {
                 {"/sessions", "list saved sessions"},
                 {"/compact", "summarize the conversation to free context"},
                 {"/commands", "list custom commands (.javuk/commands)"},
+                {"/agents [name]", "list agents, or switch persona (default to reset)"},
                 {"/cost", "show estimated session cost"},
                 {"/tokens", "show token usage"},
                 {"/system", "show the system prompt"},

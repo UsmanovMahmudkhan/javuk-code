@@ -41,6 +41,8 @@ public final class Repl {
 
     private Conversation conversation;
     private CustomCommands customCommands;
+    private dev.javuk.agent.AgentRegistry agents;
+    private String activeAgent; // null = default Javuk persona
     private final dev.javuk.mcp.McpManager mcp = new dev.javuk.mcp.McpManager();
     private String resumeId;
     private Terminal terminal;
@@ -84,6 +86,7 @@ public final class Repl {
         String systemPrompt = SystemPrompt.build(config.workingDir());
         config.systemPrompt(systemPrompt);
         customCommands = new CustomCommands(config.workingDir());
+        agents = new dev.javuk.agent.AgentRegistry(config.workingDir());
         initConversation(systemPrompt);
 
         out.println(Banner.render(config.model(), permissions.mode().name().toLowerCase()));
@@ -275,9 +278,65 @@ public final class Repl {
         this.llm = dev.javuk.llm.LlmClients.create(config, usage);
         ToolContext ctx = new ToolContext(config.workingDir(), permissions, config.hooks(),
                 config.allowOutsideWorkspace());
+        java.util.List<String> agentTypes = agents == null
+                ? java.util.List.of() : new java.util.ArrayList<>(agents.names());
         tools.register(new dev.javuk.tools.TaskTool(
-                (desc, p) -> dev.javuk.agent.SubAgent.run(llm, ctx, p)));
-        this.agent = new Agent(llm, tools, ctx);
+                (type, desc, p) -> dev.javuk.agent.SubAgent.run(llm, config, usage, ctx, agents, type, p),
+                agentTypes));
+
+        // The master registry keeps every tool (incl. MCP + Task). When a restricting
+        // persona is active, the agent sees only that persona's subset.
+        ToolRegistry effective = tools;
+        if (activeAgent != null && agents != null) {
+            dev.javuk.agent.AgentDefinition def = agents.get(activeAgent);
+            if (def != null && def.restrictsTools()) {
+                effective = tools.subset(def.tools());
+            }
+        }
+        this.agent = new Agent(llm, effective, ctx);
+    }
+
+    /**
+     * Switches the main session to a named agent persona (system prompt + restricted
+     * tools + optional model), or restores the default Javuk agent when {@code name}
+     * is null/"default"/"reset". Resets the conversation, since the system prompt
+     * changes. Prints the outcome.
+     */
+    void applyAgent(String name) {
+        if (name == null || name.isBlank()
+                || name.equalsIgnoreCase("default") || name.equalsIgnoreCase("reset")) {
+            activeAgent = null;
+            String sp = SystemPrompt.build(config.workingDir());
+            config.systemPrompt(sp);
+            conversation = new Conversation().withSystemPrompt(sp);
+            rebuildAgent();
+            out.println(Ansi.green("Switched to the default Javuk agent. Conversation reset."));
+            return;
+        }
+        dev.javuk.agent.AgentDefinition def = agents == null ? null : agents.get(name);
+        if (def == null) {
+            out.println(Ansi.red("Unknown agent: " + name) + Ansi.gray("  (try /agents)"));
+            return;
+        }
+        activeAgent = def.name();
+        config.systemPrompt(def.systemPrompt());
+        if (def.model() != null) {
+            config.model(def.model());
+        }
+        conversation = new Conversation().withSystemPrompt(def.systemPrompt());
+        rebuildAgent();
+        String tools = def.restrictsTools()
+                ? "  (tools: " + String.join(", ", def.tools()) + ")" : "";
+        out.println(Ansi.green("Switched to agent '" + def.name() + "'. Conversation reset.")
+                + Ansi.gray(tools));
+    }
+
+    dev.javuk.agent.AgentRegistry agents() {
+        return agents;
+    }
+
+    String activeAgent() {
+        return activeAgent;
     }
 
     // --- accessors used by SlashCommands ---

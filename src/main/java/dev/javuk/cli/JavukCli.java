@@ -2,6 +2,7 @@ package dev.javuk.cli;
 
 import dev.javuk.agent.Agent;
 import dev.javuk.agent.AgentListener;
+import dev.javuk.agent.AgentRegistry;
 import dev.javuk.agent.Conversation;
 import dev.javuk.agent.SubAgent;
 import dev.javuk.config.Config;
@@ -120,7 +121,10 @@ public final class JavukCli implements Callable<Integer> {
         // One-shot is non-interactive: cannot prompt, so allow tool actions.
         ToolContext ctx = new ToolContext(config.workingDir(), PermissionService.allowAll(),
                 config.hooks(), config.allowOutsideWorkspace());
-        tools.register(new TaskTool((desc, p) -> SubAgent.run(llm, ctx, p)));
+        AgentRegistry agents = new AgentRegistry(config.workingDir());
+        tools.register(new TaskTool(
+                (type, desc, p) -> SubAgent.run(llm, config, usage, ctx, agents, type, p),
+                new java.util.ArrayList<>(agents.names())));
         Agent agent = new Agent(llm, tools, ctx);
 
         Conversation conversation = new Conversation();
